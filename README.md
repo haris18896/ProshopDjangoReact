@@ -331,5 +331,159 @@ export default Rating
 
 ### `Routing`
 `npm install react-router-dom`
+`npm  install react-router-bootstrap`
+
+and then do the routing in the `App.js`
+```js
+// /src/App.js
+import { Container } from 'react-bootstrap';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+
+import Footer from "./components/Footer";
+import Header from "./components/Header";
+import HomeScreen from './screens/HomeScreen';
+import ProductScreen from './screens/ProductScreen';
+
+function App() {
+  return (
+    <Router>
+       <div>
+        <Header />
+
+        <main className="py-3">
+          <Container>
+            <Switch>
+              <Route exact path="/" component={HomeScreen} />
+              <Route exact path="/product/:id" component={ProductScreen} />
+            </Switch>
+          </Container>
+        </main>
+
+        <Footer />
+      </div>
+    </Router>
+   
+  );
+}
+
+export default App;
+```
+
+to add the `Link` tag to the `react-bootstrap` we have to install `react-router-bootstrap package` for that. and then import `LinkContainer` from 'react-router-bootstrap'
+
+and then change the following code to the below one 
+<Navbar.Brand href="/">ProShop</Navbar.Brand>
+
+```js
+<LinkContainer to="/">
+    <Navbar.Brand >ProShop</Navbar.Brand>
+</LinkContainer>
+```
+---
+---
+
+### `Product Detail Screen`
+`    const product = products.find((p) => p._id === match.params.id);`
+
+we have passed the `id` in the App.js file to the product page that's how we are finding it and then we have to output it.
+
+```js
+// /src/screens/ProductScreen.js
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Row, Col, Image, ListGroup, Button } from 'react-bootstrap';
+import Rating from '../components/Rating';
+import products from '../products'
+
+function ProductScreen({ match }) {
+
+    const product = products.find((p) => p._id === match.params.id);
+
+    return (
+        <div>
+            {product.name}
+        </div>
+    )
+}
+
+export default ProductScreen
+```
+
+after that we are going to add a button and then {product.image} after that we are going to add product details
+```js
+// /src/screens/ProductScreen.js
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Row, Col, Image, ListGroup, Button, Card } from 'react-bootstrap';
+import Rating from '../components/Rating';
+import products from '../products'
+
+function ProductScreen({ match }) {
+
+    const product = products.find((p) => p._id === match.params.id);
+
+    return (
+        <div>
+            <Link to="/" className="btn btn-dark my-3">Go Back</Link>
+            <Row>
+                <Col md={6}>
+                    <Image src={product.image} alt={product.name} fluid />
+                </Col>
+
+                <Col md={3}>
+                    <ListGroup variant="flush">
+                        <ListGroup.Item>
+                            <h3><strong>{product.name}</strong></h3>
+                        </ListGroup.Item>
+
+                        <ListGroup.Item>
+                            <Rating value={product.rating} text={product.numReviews + ' reviews'} color={`#f8e825`}/>
+                        </ListGroup.Item>
+
+                        <ListGroup.Item>
+                            Price: $<strong>{product.price}</strong>
+                        </ListGroup.Item>
+
+                        <ListGroup.Item>
+                            Description: <strong>{product.description}</strong>
+                        </ListGroup.Item>
+                    </ListGroup>
+                </Col>
+
+                <Col md={3}>
+                    <Card>
+                        <ListGroup variant="flush">
+                            <ListGroup.Item>
+                                <Row>
+                                    <Col>Price: </Col>
+                                    <Col>$<strong>{product.price}</strong></Col>
+                                </Row>
+                            </ListGroup.Item>
+
+                            <ListGroup.Item>
+                                <Row>
+                                    <Col>Status: </Col>
+                                    <Col>{product.countInStock > 0 ? "In Stock" : "Out of Stock"}</Col>
+                                </Row>
+                            </ListGroup.Item>
+
+                            <ListGroup.Item>
+                                <Button className="btn-block" type="button" disabled={product.countInStock === 0}>Add To Cart</Button>
+                            </ListGroup.Item>
+                        </ListGroup>
+                    </Card>
+                </Col>
+            </Row>
+        </div>
+    )
+}
+
+export default ProductScreen
+
+```
+---
+---
+---
+---
 
 
