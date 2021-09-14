@@ -158,6 +158,8 @@ case CART_ADD_ITEM:
     5. Register CartReducer in the store.js
 
 
+---
+---
 ### `Cart Actions`
 we have completed the cart Reducer, it's added to the store.js, now we need to add the actions to the cartActions.js file.
 
@@ -225,6 +227,9 @@ const initialState = {
     8. parse the cartItems from the localStorage to the object in store.js
     9. add the cartItems to the initialState
 
+
+---
+---
 ### `Add To Cart Functionality`
 ```js
 // /src/screens/CartScreen.js
@@ -300,7 +305,8 @@ function CartScreen({ match, location, history }) {
     6. use useSelector to get the cartItems from the store
     7. destructure the cartItems from the cart
 
-
+---
+---
 ### `Cart Screen`
 
 
