@@ -308,9 +308,186 @@ function CartScreen({ match, location, history }) {
 ---
 ---
 ### `Cart Screen`
+in the cart screen we are going to render our `cartItems` in a list group.
+we are going to `map` through all of our cartItems.
+
+```js
+// /src/screens/CartScreen.js
+ return (
+        <Row>
+            <Col md={8}>
+                <h1>Shopping Cart</h1>
+                {cartItems.length === 0 ? (
+                    <Message variant="info">
+                        Your Cart is empty <Link to="/">Go Back</Link>
+                    </Message>
+                ):(
+                    <ListGroup variant='flush'>
+                        {cartItems.map(item => (
+                            <ListGroup.Item key={item.product}>
+                                <Row>
+                                    <Col md={2}>
+                                        <Image src={item.image} alt={item.name} fluid rounded/>
+                                    </Col>
+
+                                    <Col md={3}>
+                                        <Link to={`/product/${item.product}`}>{item.name}</Link>
+                                    </Col>
+
+                                    <Col md={2}>
+                                        ${item.price}
+                                    </Col>
+
+                                    <Col md={3}>
+                                        <Form.Control
+                                            as = "select"
+                                            value={item.qty}
+                                            onChange={e => dispatch(addToCart(item.product, Number(e.target.value)))}
+                                        >
+                                            {
+                                                [...Array(item.countInStock).keys()].map(x =>{
+                                                    return <option key={x + 1} value={x + 1}>{x + 1}</option>
+                                                })
+                                            }
+
+                                        </Form.Control>
+                                    </Col>
+```
+
+after that we are going to add a `Button` to the cart screen. which will delete the item from the cart.
+```js
+// /src/screens/CartScreen.js
+///......................
+//.......................
+                                    <Col md={1}>
+                                        <Button
+                                         type="button"
+                                         bsStyle="danger"
+                                        variant="light"
+                                        style={{color: "red"}}
+                                        onClick={() =>removeFromCartHandler(item.product)}
+                                        >
+                                            <i className="fas fa-trash"></i>
+                                        </Button>
+                                    </Col>
+```
+
+and then now define the `removeFromCartHandler` function bellow the useEffect.
+```js
+// /src/screens/CartScreen.js
+//.......................
+useEffect(()=>{
+    //....
+});
+
+ const removeFromCartHandler = (id) => {
+        console.log('remove:', id)
+    }
+```
+
+Now going to the second `Column`, which will be the Cart summary
+```js
+// /src/screens/CartScreen.js
+            <Col md={4}>
+                <Card>
+                    <ListGroup variant="flush">
+                        <ListGroup.Item>
+                            <h2>Sub-Total ({cartItems.reduce((acc, item)=> acc + item.qty, 0)}) items</h2>
+                        </ListGroup.Item>
+                    </ListGroup>
+                </Card>
+            </Col>
+
+```
+
+```js
+// /src/screens/CartScreen.js
+            <Col md={4}>
+                <Card>
+                    <ListGroup variant="flush">
+                        <ListGroup.Item>
+                            <h2>Sub-Total ({cartItems.reduce((acc, item)=> acc + item.qty, 0)}) items</h2>
+                            ${cartItems.reduce((acc, item)=> acc + item.qty * item.price, 0).toFixed(2)}
+                        </ListGroup.Item>
+                        
+                        <ListGroup.Item>
+                            <Button
+                             type="button"
+                             className="btn-block"
+                             disabled={cartItems.length === 0}
+                             onClick={checkoutHandler}
+                            >
+                                Proceed to Check Out
+                            </Button>
+                        </ListGroup.Item>
+                    </ListGroup>
+                </Card>
+            </Col>
+```
 
 
 
+after that we are going to add a logic to the `checkoutHandler` function, that if the user is not logged in, then he will be redirected to the login screen. else if the user is logged in, then he will be redirected to the `shipping` screen.
+```js
+// /src/screens/CartScreen.js
+const checkoutHandler = () => {
+        history.push('/login?redirect=shipping');
+    }
+```
+
+    Steps:
+    0. rendering the components
+    1. check for the cartItems length if it is 0 then show the message else map through the cartItems products and render the list group
+    2. add a selector from ProductScreen.js e.g <Form.Control>
+    3. add a button to delete the item from the cart and pass it the handler
+    4. use High Order Function to add the the item numbers
+    5. add a `Proceed to Checkout` button, this button will be disabled if the cartItems length is 0
+    6. if logged in then redirect to the shipping screen if not logged in then redirect to the login screen
+
+---
+---
+
+### `Remove Items from Cart`
+in the above topic we have added a delete button in the cart, so that item can be deleted, now we are going to make that function working.
+
+Reducer:
+to make the reducer for the remove item from cart, we are going to use filter method. as we are maping through that and check if the product id is not equal to the action.payload, so action.payload is going to be the `id` that we want to remove, so filter is going to keep every product that doesn't match that id, so this will give us an array with the item removed and we can  update the cartItems.
+```js
+// /src/reducers/cartReducer.js
+
+//.....
+        case CART_REMOVE_ITEM:
+            return{
+                ...state,
+                cartItems: state.cartItems.filter(x => x.product !== action.payload)
+            }
+```
+
+after that we are going to create an action for removing item from cart.
+```js
+// /src/constant/cartAction.js
+export const removeFromCart = (id) => async (dispatch, getState) => {
+    dispatch({
+        type: CART_REMOVE_ITEM,
+        payload: id
+    })
+    localStorage.setItem('cartItems', JSON.stringify(getState().cart.cartItems));
+}
+```
+
+after creating action we are going to dispatch this action in the CartScreen.js in the removeFromCartHandler function.
+```js
+// /src/screens/CartScreen.js
+    const removeFromCartHandler = (id) => {
+        // console.log('remove:', id)
+        dispatch(removeFromCart(id));
+    }
+```
+
+    Steps:
+    1. declare the constant for removig the item from the cart `CART_REMOVE_ITEM`
+    2. import that constant in the Reducer and write a new case.
+    3. add new action for removing the item from the cart.
 
 
 
