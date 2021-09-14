@@ -18,7 +18,7 @@ function ProductScreen({ match,  history }) {
 
     useEffect (() => {
         dispatch(listProductDetails(match.params.id))
-    }, []);
+    }, [dispatch, match.params.id]);
 
     const addToCartHandler = () => {
         console.log("Add to Cart", match.params.id)
