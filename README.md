@@ -184,6 +184,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
 
+        data['first_name'] = self.user.first_name
+        data['last_name'] = self.user.last_name
         data['username'] = self.user.username
         data['email'] = self.user.email
 
@@ -191,7 +193,22 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 ```
 
 so this way we don't need to decode the token and we can use the `username` and `email` of the user.
+```py
+# views.py
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
 
+        # data['username'] = self.user.username
+        # data['email'] = self.user.email
+        # data['first_name'] = self.user.first_name
+
+        serializer = UserSerializerWithToken(self.user).data
+        for key, value in serializer.items():
+            data[key] = value
+
+        return data
+```
 
     Steps:
     1. pip install djangorestframework-simplejwt
@@ -211,11 +228,153 @@ so this way we don't need to decode the token and we can use the `username` and 
 
 ### `User Serializer`
 
+```py
+# serializers.py
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
+```
+
+```py
+# views.py
+@api_view(['GET'])
+def getUserProfile(request):
+    user = request.user
+    serializer = UserSerializer(user, many=False)
+    return Response(serializer.data)
+```
+
+```py
+# urls.py
+    path('users/profile/', views.getUserProfile, name="users-profile"),
+
+```
+
+right now we get nothing back in our response, the `request.user` can't find the user. because we wraped our `getUserProfile` function in `@api_view` decorator because of which the software is looking for a token rather than that default authentication.
+
+to do so, we can check it in `postman`, by sending the token along with the request in Header. `Bearer`.
+
+now we are going to customize the `UserSerializer` fields in the `serializers.py` file, if we look in the django user model we have, first_name, last_name, username, email, etc.
+so we want the user to be logged in weather if they put their first_name as a fullName or email.
+
+we will be checking if the user has a name, if the user doesn't have a name then we will be using the email.
+
+```py
+# serializers.py
+class UserSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField(read_only=True)
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'name']
+
+    def get_name(self, obj):
+        name = obj.first_name
+
+        if name == '':
+            name = obj.email
+        return name
+```
+
+and then we will customize the same class `UserSerializer` file for `_id` field, becuase for all other things we are using the `_id` field.
+```py
+# serializers.py
+class UserSerializer(serializers.ModelSerializer):
+    #......
+    _id = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', '_id', 'username', 'email', 'name']
+
+    def get__id(self, obj):
+        return obj.id
+
+    #....
+    #....
+```
+
+```py
+# serializers.py
+
+class UserSerializer(serializers.ModelSerializer):
+    #......
+    isAdmin = serializers.SerializerMethodField(read_only=True)
+
+
+    class Meta:
+        model = User
+        fields = ['id', '_id', 'username', 'email', 'name', 'isAdmin']
+
+    def get_isAdmin(self, obj):
+        return obj.is_staff
+
+    #....
+    #....
+```
+
+Now we are going to create another serialzer similar to `UserSerializer` class, but this time we are going to make this serializer for `refresh` token.
+
+we will need this for when the user first register, when a user resets their account information, we will need a new token to represent the new user information.
+
+for that we will first import the refresh token function, and create a new serializer class.and in that new serializer we will extend the `UserSerializer` class. so that we can have access to all the data of `UserSerializer` class
+
+```py
+# serializers.py
+#....
+from rest_framework.simplejwt.token import RefreshToken
+
+    # ..........
+class UserSerializerWithToken(UserSerializer):
+    token = serializers.SerializerMethodField(read_only=True)
+    class Meta:
+        model = User
+        fields = ['id', '_id', 'username', 'email', 'name', 'isAdmin', 'token']
+
+    def get_token(self, obj):
+        token = RefreshToken.for_user(obj)
+        return str(token.access_token)
+
+#....
+#....
+```
+
+now we are going to clean the `MyTokenObtainPairView` class, so that we can use the `UserSerializerWithToken` class. and can return more data for that we make a `for loop` and output the data from `UserSerializerWithToken` class. in the `MyTokenObtainPairView` class we will be looping over the `UserSerializerWithToken` class and output the data.
+
+```py
+# views.py
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        serializer = UserSerializerWithToken(self.user).data
+        for key, value in serializer.items():
+            data[key] = value
+
+        return data
+```
 
 
 
     Steps:
-    1.
+    1. create a `UserSerializer` class in `serializers.py` file.
+    2. define the userProfile in the `views.py` file.
+    3. make the route in the `urls.py` file for `users/profile/`
+    4. send the `Bearer` token along with the request in the Header using `Postman`.
+    5. customizing the `UserSerializer` class fields in `serializers.py` file for the `name` field.
+    6. customizing the `UserSerializer` class fields in `serializers.py` file for the `_id` field.
+    7. customizing the `UserSerializer` class fields in `serializers.py` file for the `isAdmin` field.
+    8. make a serializer for `refresh` token in `serializers.py` file.
+    9. import refresh token function in `serializers.py` file.
+    10. clean `MyTokenObtainPairSerializer` class in `views.py` file. and loop over the `UserSerializerWithToken` class to output the data.
+
+
+---
+---
+
+### `Protected Routes`
+
 
 
 
