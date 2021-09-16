@@ -374,9 +374,331 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 ---
 
 ### `Protected Routes`
+we going to restrict some areas of our site, which will only be accessed if the user is Authenticated, and other areas if the user is admin, so for that we have to define a decorator on each view according to permission.
+
+```py
+# views.py
+#........
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.contrib.auth.models import User
+
+
+#........
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getUserProfile(request):
+    #........
+    #........
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def getUsers(request):
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
+```
+check the authenticity of the user, if the user is authenticated then we will be able to access the user profile, if the user is not authenticated then we will not be able to access the user profile.
+
+after that we will get all the users from the database, and will create a URL in the `urls.py` file
+```py
+# urls.py
+    path('users/', views.getUsers, name="users"),
+```
+authenticate the `getUsers` function using `IsAdminUser` permission so that only the admin has access to the users. and then check that in the post man by sending the `Bearer` in the `Header`
+
+
+    Steps:
+    1. import `permission_classes` from `rest_framework.decorators`, and `IsAuthenticated, IsAdminUser` from `rest_framework.permissions`.
+    2. add this decorator `@permission_classes([IsAuthenticated])` or `@permission_classes([IsAdminUser])` to the `getUserProfile` function in `views.py` file.and check the authenticity of the user.
+    3. create a `getUsers` function in `views.py` file to get all the users from the database.
+    4. define the path in the `urls.py` file for `users/`
+    5. and then authenticate the `getUsers` function using permission_classes decorator.
+
+---
+---
+
+### `Register User`
+here we are going to create a post request to the `/users/` url, and we will be able to create a new user in the database.
+
+first of all get rid of the Routes in the `getRoutes` function in the `views.py` file. 
+then we will define a function for user registration in the `views.py` file.
+and in that we will use the 'POST` request,  by the logic we will request the data to pull it from the request.
+and then we will create the user with the help of `User` Object. 
+
+also the password cannot be stored in the raw form, so before saving the password we have to `hashed` it.for that we will import the `make_password` hasher from the `django.contrib.auth.hashers`
+
+```py
+# views.py
+# ........
+@api_view(['POST'])
+def registerUser(request):
+    data = request.data
+
+    user = User.objects.create_user(
+        first_name = data['name'],
+        username = data['email'],
+        email = data['email'],
+        password = make_password(data['password']),
+    )
+
+    serializer = UserSerializerWithToken(user, many=False)
+    return Response(serializer.data)
+
+# ........
+```
+
+```py
+# urls.py
+    path('users/register/', views.registerUser, name='register'),
+```
+
+Remember we are sending a post request, to send a `Post` request from the Postman, go to the `body` and `form-data` section and send the `email`, `name`, `password` and `confirmPassword` fields etc that you have defined to be put in the request.
+
+after that we are going to create our own error handler so that we can handle the errors if the user is already registered. for that import `from rest_framework import status` in the `views.py` file. 
+
+for docs: `https://www.django-rest-framework.org/api-guide/status-codes/` 
+
+we are going to use `Http_400_bad_request` to handle the error.
+```py
+# views.py
+@api_view(['POST'])
+def registerUser(request):
+    data = request.data
+    try:
+        user = User.objects.create_user(
+            first_name = data['name'],
+            username = data['email'],
+            email = data['email'],
+            password = make_password(data['password']),
+        )
+
+        serializer = UserSerializerWithToken(user, many=False)
+        return Response(serializer.data)
+    except:
+        message = {'detail:' 'User with this email already exists'}
+        return Response(message, status=status.HTTP_400_BAD_REQUEST)
+```
+
+    Steps:
+    1. creating a `Post` request for `user Registration`
+    2. make a registerUser function
+    3. use the `User` to object to create a new user in the database.
+    4. hashed the password using `make_password` function from `django.contrib.auth.hashers`
+    5. use the `UserSerializerWithToken` to serialize the user.
+    6. return the serialized user data.
+    7. make the path for `users/register/` iin  `urls.py` file.
+    8. to send a `Post` request from the Postman, go to the `body` and `form-data` section and send the `email`, `name`, `password` and `confirmPassword` fields etc that you have defined to be put in the request.
+    9. creating our own error handler, by using `try except` block iin the `view.py` file and status codes to show the message.
+
+---
+---
+
+### `Login with Email`
+`Django Signals` are combination of senders and receviers, so basically our signals listen to actions that occur in our program, so any time when we hit the `save` button in the django admin panel it sends out a signal to the receiver. 
+and that receiver can now trigger a function and it can do something in the backend with whatever occured.
+
+docs: `https://docs.djangoproject.com/en/3.2/ref/signals/#django.db.models.signals.pre_save`
+
+here we will be using 2 types of signals , 1. `pre_save` and 2. `post_save`
+pre_save will be triggered before the user is saved in the database.
+post_save will be triggered after the user is saved in the database.
+
+```py
+# signals.py
+from django.db.models.signals import pre_save
+from django.contrib.auth.models import User
+
+def updateUser(sender, instance, **kwargs):
+    print("signal triggered")
+    
+pre_save.connect(updateUser, sender=User)
+```
+
+once we create the signal, we need to to the `apps.py` file and add the `signals` app to the `INSTALLED_APPS` list.
+
+```py
+# apps.py
+from django.apps import AppConfig
+
+
+class BaseConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'base'
+    
+    def ready(self):
+         import base.signals
+```
+
+in order too work it out we need to add our app in the `settings.py` file like this `'base.apps.BaseConfig',`.
+
+if the `user.username` isn't an email then we will check for it , and after that on clicking save button the user.email will be automatically filed in the username
+
+
+```py
+# signals.py
+def updateUser(sender, instance, **kwargs):
+    # print("signal triggered")
+    user = instance
+    if user.email != "":
+        user.username = user.email
+```
 
 
 
+    Steps:
+    1. create a file `signals.py`.
+    2. import `pre_save` and `post_save` from `django.db.models.signals`.
+    3. register the signal in the `apps.py` file
+    4. in the `signals.py` file we will create a function `updateUser` and we will use the `sender` and `instance` to get the user object.
+    5. if the `user.username` isn't an email then we will check for it , and after that on clicking save button the user.email will be automatically filed in the username.
+
+---
+---
+### `cleanUp of URL's and Views's`
+
+after this we are going to clean the urls and views because this going to get messy as it's going to be a lot of urls and views.
+
+```py
+# backend/urls.py
+
+from django.contrib import admin
+from django.urls import path, include
+
+from django.conf import settings
+from django.conf.urls.static import static
+
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    # path('api/', include('base.urls')),
+    path('api/products/', include('base.urls.product_urls')),
+    path('api/users/', include('base.urls.user_urls')),
+    # path('api/orders/', include('base.urls.order_urls')),
+]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+```
+
+```py
+# base/urls/product_urls.py
+from django.urls import path
+from base.views import product_views as views
 
 
 
+urlpatterns = [
+    path('', views.getProducts, name="products"),
+    path('<str:pk>', views.getProduct, name="product"),
+
+]
+
+```
+
+```py
+# base/urls/user_urls.py
+from django.urls import path
+from base.views import user_views as views
+
+
+
+urlpatterns = [
+    path('login', views.MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('register/', views.registerUser, name='register'),
+    path('profile/', views.getUserProfile, name="users-profile"),
+    path('', views.getUsers, name="users"),
+]
+```
+
+```py
+# base/views/product_views.py
+from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+
+from base.models import Product
+from base.serializers import ProductSerializer
+
+
+@api_view(['GET'])
+def getProducts(request):
+    products = Product.objects.all()
+    serializer = ProductSerializer(products, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def getProduct(request, pk):
+    product = Product.objects.get(_id=pk)
+    serializer = ProductSerializer(product, many=False)
+
+    return Response(serializer.data)
+```
+
+```py
+# base/views/user_views.py
+from django.shortcuts import render
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
+
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+from base.serializers import UserSerializer, UserSerializerWithToken
+
+
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        serializer = UserSerializerWithToken(self.user).data
+        for key, value in serializer.items():
+            data[key] = value
+
+        return data
+
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
+
+
+@api_view(['POST'])
+def registerUser(request):
+    data = request.data
+    try:
+        user = User.objects.create_user(
+            first_name = data['name'],
+            username = data['email'],
+            email = data['email'],
+            password = make_password(data['password']),
+        )
+
+        serializer = UserSerializerWithToken(user, many=False)
+        return Response(serializer.data)
+    except:
+        message = {'detail:' 'User with this email already exists'}
+        return Response(message, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getUserProfile(request):
+    user = request.user
+    serializer = UserSerializer(user, many=False)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def getUsers(request):
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
+```
+
+---
+---
+---
